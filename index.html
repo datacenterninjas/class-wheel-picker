@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Class Wheel Picker</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎡</text></svg>">
+<script src="students.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<style>
+:root{--bg:#f4f5fb;--card:#fff;--ink:#1d2033;--muted:#6b7090;--line:#e3e5f0;--accent:#4f46e5;--accent2:#eef0ff}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--line);gap:12px;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;white-space:nowrap}
+header h1 small{font-weight:400;color:var(--muted);font-size:13px}
+.hgroup{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.stats{display:flex;gap:6px;flex-wrap:wrap}
+.badge{background:var(--accent2);color:var(--accent);padding:4px 10px;border-radius:99px;font-size:12px;font-weight:600}
+.badge.grey{background:#f1f1f4;color:#666}.badge.green{background:#dcfce7;color:#166534}
+main{display:grid;grid-template-columns:320px 1fr 320px;gap:16px;padding:16px;max-width:1520px;margin:0 auto}
+@media(max-width:1100px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px}
+textarea{width:100%;height:130px;border:1px solid var(--line);border-radius:10px;padding:8px;font:inherit;font-size:13px;resize:vertical}
+input[type=number],input[type=search]{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px}
+input[type=number]{width:80px}input[type=search]{width:100%}
+.btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 11px;font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.small{padding:4px 8px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;align-items:center}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:12px;text-align:center;font-size:13px;color:var(--muted);cursor:pointer;margin-top:8px}
+.drop.over{border-color:var(--accent);background:var(--accent2)}
+.hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+details summary{cursor:pointer;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:5px;max-height:420px;overflow:auto;margin-top:8px}
+.chip{font-size:12px;padding:3px 8px;border-radius:99px;background:var(--accent2);cursor:pointer;user-select:none}
+.chip.absent{background:#f1f1f4;color:#aaa;text-decoration:line-through}
+.chip.picked{background:#dcfce7;color:#166534}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.legend .chip{cursor:default}
+.center{display:flex;flex-direction:column;align-items:center;gap:12px}
+.stage{position:relative;width:min(640px,90vw);aspect-ratio:1}
+#wheel{width:100%;height:100%;display:block}
+.pointer{position:absolute;top:-4px;left:50%;transform:translateX(-50%);border-left:18px solid transparent;border-right:18px solid transparent;border-top:34px solid var(--ink);filter:drop-shadow(0 2px 2px rgba(0,0,0,.3));z-index:2}
+.spin-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18%;aspect-ratio:1;border-radius:50%;border:5px solid #fff;background:var(--ink);color:#fff;font-size:clamp(14px,2.4vw,20px);font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.spin-btn:disabled{opacity:.7;cursor:wait}
+.live{font-size:24px;font-weight:700;min-height:32px;text-align:center}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.seg button{flex:1;border:0;background:#fff;padding:8px 10px;font:inherit;font-size:13px;cursor:pointer;color:var(--ink);white-space:nowrap}
+.seg button.on{background:var(--accent);color:#fff}
+.seg button:disabled{cursor:not-allowed}
+#batchSeg button{font-weight:600;padding:8px 16px}
+label.opt{display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:8px 0;cursor:pointer}
+input[type=range]{width:100%}
+.hist{max-height:320px;overflow:auto;font-size:13px}
+.hist div{padding:7px 0;border-bottom:1px solid var(--line)}
+.hist small{color:var(--muted)}
+.overlay{position:fixed;inset:0;background:rgba(15,17,35,.55);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.overlay.show{display:flex}
+.modal{background:#fff;border-radius:18px;padding:24px;max-width:900px;width:100%;max-height:88vh;overflow:auto;text-align:center}
+.modal h3{margin:0 0 14px;font-size:22px}
+.winners{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.winner{background:var(--accent2);color:var(--accent);font-weight:700;font-size:22px;padding:10px 18px;border-radius:12px}
+.winner.solo{font-size:clamp(28px,6vw,52px);padding:18px 30px}
+.winner b{opacity:.5;margin-right:6px}
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;text-align:left}
+.group{border:1px solid var(--line);border-radius:12px;padding:10px;font-size:14px;line-height:1.5}
+.group h4{margin:0 0 6px;color:var(--accent)}
+ol.order{text-align:left;columns:3 200px;font-size:15px;line-height:1.7;margin:0;padding-left:28px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .25s;z-index:30;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:25}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+body.present main{grid-template-columns:1fr}
+body.present .side,body.present .stats{display:none}
+body.present .stage{width:min(80vh,92vw)}
+kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:#fafafa}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎡 Class Wheel <small id="course"></small></h1>
+  <div class="hgroup">
+    <div class="seg" id="batchSeg"></div>
+    <div class="stats" id="stats"></div>
+  </div>
+  <button class="btn" id="presentBtn" title="Shortcut: F">⛶ Presentation mode</button>
+</header>
+
+<main>
+  <!-- LEFT: roster -->
+  <section class="side">
+    <div class="card">
+      <h2>Roster — tap a name</h2>
+      <input type="search" id="search" placeholder="Search name…">
+      <div class="legend">
+        <span class="chip">on wheel → tap = absent</span>
+        <span class="chip absent">absent → tap = present</span>
+        <span class="chip picked">picked → tap = put back</span>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="row"><button class="btn small" id="allPresentBtn">Mark everyone present</button></div>
+    </div>
+    <div class="card">
+      <details id="manage">
+        <summary>Manage roster (upload / edit)</summary>
+        <div class="drop" id="drop">📄 Drop CSV / XLSX / TXT or <u>browse</u>
+          <input type="file" id="file" accept=".csv,.txt,.xlsx,.xls" hidden>
+        </div>
+        <p class="hint">Replaces the current batch. Uses the column named “Name” (or the first column).</p>
+        <textarea id="names" placeholder="One name per line"></textarea>
+        <div class="row">
+          <button class="btn primary" id="applyBtn">Save list</button>
+          <button class="btn" id="restoreBtn">Restore built-in list</button>
+          <button class="btn" id="templateBtn">CSV template</button>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- CENTER: wheel -->
+  <section class="center">
+    <div class="stage" id="stage">
+      <div class="pointer"></div>
+      <canvas id="wheel" aria-label="Name wheel"></canvas>
+      <button class="spin-btn" id="spinBtn">SPIN</button>
+    </div>
+    <div class="live" id="live">Press SPIN or hit Space</div>
+    <div class="sr" aria-live="assertive" id="announce"></div>
+  </section>
+
+  <!-- RIGHT: settings + history -->
+  <section class="side">
+    <div class="card">
+      <h2>Pick mode</h2>
+      <div class="seg" id="modeSeg">
+        <button data-mode="single" class="on">One</button>
+        <button data-mode="multi">Multiple</button>
+        <button data-mode="groups">Groups</button>
+        <button data-mode="order">Order</button>
+      </div>
+      <div class="row" id="countRow" style="display:none">
+        <span id="countLabel">How many names?</span>
+        <input type="number" id="count" min="1" value="5">
+      </div>
+      <p class="hint" id="modeHint">Spin once, pick one student.</p>
+      <label class="opt"><input type="checkbox" id="optRemove"> <span>Remove picked names from the wheel<br><small class="hint">No repeats until you reset the round</small></span></label>
+      <label class="opt"><input type="checkbox" id="optAnimate"> <span>Spin for every pick (Multiple)<br><small class="hint">Off = pick many names instantly</small></span></label>
+      <label class="opt"><input type="checkbox" id="optSound"> <span>Tick sound</span></label>
+      <label class="opt"><input type="checkbox" id="optConfetti"> <span>Confetti</span></label>
+      <label style="font-size:13px">Spin length: <b id="spinSecLbl"></b>
+        <input type="range" id="spinSec" min="2" max="10" step="1"></label>
+      <div class="row">
+        <button class="btn" id="undoBtn" disabled>↶ Undo last pick</button>
+        <button class="btn" id="resetBtn" title="Shortcut: R">↺ Reset round</button>
+      </div>
+      <p class="hint"><kbd>Space</kbd> spin · <kbd>1</kbd>/<kbd>2</kbd> batch · <kbd>F</kbd> full screen · <kbd>Esc</kbd> close</p>
+    </div>
+    <div class="card">
+      <h2>History — <span id="histBatch"></span></h2>
+      <div class="row"><button class="btn small" id="exportBtn">Export CSV</button><button class="btn small" id="clearHistBtn">Clear</button></div>
+      <div class="hist" id="hist"></div>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" id="overlay"><div class="modal" role="dialog" aria-modal="true">
+  <h3 id="mTitle"></h3>
+  <div id="mBody"></div>
+  <div class="row" style="justify-content:center;margin-top:18px">
+    <button class="btn" id="copyBtn">Copy</button>
+    <button class="btn primary" id="closeBtn">Close</button>
+  </div>
+</div></div>
+<div class="toast" id="toast"></div>
+<canvas id="confetti"></canvas>
+
+<script>
+const $ = id => document.getElementById(id);
+const DATA = window.BATCHES || { course:'', batches:[{ id:'b1', title:'Batch 1', names:[] }, { id:'b2', title:'Batch 2', names:[] }] };
+const COLORS = ['#4f46e5','#0891b2','#16a34a','#d97706','#dc2626','#9333ea','#0d9488','#db2777','#2563eb','#65a30d'];
+const KEY = 'classWheel:v1';
+const MODE_HINT = { single:'Spin once, pick one student.', multi:'Pick several different students in one go.', groups:'Split everyone present into random groups.', order:'Random order for the whole class (e.g. presentations).' };
+
+/* ---------- state & persistence ---------- */
+let nextId = 1;
+const mk = (name, absent = false, picked = false) => ({ id: nextId++, name, absent, picked });
+let S = { current: DATA.batches[0].id, settings: { removePicked:true, animate:true, sound:true, confetti:true, spinSec:5 }, batches:{} };
+function load(){
+  let saved = null; try { saved = JSON.parse(localStorage.getItem(KEY)); } catch(e){}
+  if (saved){ S.current = saved.current || S.current; Object.assign(S.settings, saved.settings || {}); }
+  DATA.batches.forEach(b => {
+    const sb = saved?.batches?.[b.id];
+    if (sb?.custom){ S.batches[b.id] = { custom:true, names: sb.names.map(n => mk(n.name, n.absent, n.picked)), history: sb.history || [] }; return; }
+    const prev = new Map((sb?.names || []).map(n => [n.name.toLowerCase(), n]));   // keep absent/picked flags by name
+    S.batches[b.id] = { custom:false, names: b.names.map(n => { const p = prev.get(n.toLowerCase()); return mk(n, !!p?.absent, !!p?.picked); }), history: sb?.history || [] };
+  });
+  if (!S.batches[S.current]) S.current = DATA.batches[0].id;
+}
+function save(){
+  const out = { current:S.current, settings:S.settings, batches:{} };
+  for (const [id, b] of Object.entries(S.batches)) out.batches[id] = { custom:b.custom, names:b.names.map(({ name, absent, picked }) => ({ name, absent, picked })), history:b.history.slice(0, 300) };
+  try { localStorage.setItem(KEY, JSON.stringify(out)); } catch(e){}
+}
+const B = () => S.batches[S.current];
+const batchTitle = id => DATA.batches.find(b => b.id === id)?.title || id;
+let lastPick = {};   // per batch: ids picked in the last draw (for undo)
+
+/* ---------- randomness (crypto-grade, unbiased) ---------- */
+function randInt(n){ const max = Math.floor(0x100000000 / n) * n, a = new Uint32Array(1);
+  do { crypto.getRandomValues(a); } while (a[0] >= max); return a[0] % n; }
+function shuffle(arr){ const a = arr.slice(); for (let i = a.length - 1; i > 0; i--){ const j = randInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* ---------- names ---------- */
+const present = () => B().names.filter(n => !n.absent);
+const onWheel = () => B().names.filter(n => !n.absent && !(S.settings.removePicked && n.picked));
+function cleanList(raw){
+  const seen = new Set(), out = []; let dupes = 0, blanks = 0;
+  raw.forEach(s => { s = String(s ?? '').replace(/\s+/g,' ').trim();
+    if (!s){ blanks++; return; } const k = s.toLowerCase();
+    if (seen.has(k)){ dupes++; return; } seen.add(k); out.push(s); });
+  return { out, dupes, blanks };
+}
+function setRoster(list, msg){
+  B().names = list.map(n => mk(n)); B().custom = true; lastPick[S.current] = null;
+  $('names').value = list.join('\n'); highlight = null; save(); refresh(); toast(msg);
+}
+function fromRows(rows){
+  rows = rows.filter(r => r && r.some(c => String(c ?? '').trim()));
+  if (!rows.length) return [];
+  const head = rows[0].map(c => String(c ?? '').trim().toLowerCase());
+  let col = head.findIndex(h => /^(full\s*)?(student\s*)?name$/.test(h));
+  if (col < 0) col = head.findIndex(h => h.includes('name') && !h.includes('course'));
+  if (col >= 0) rows = rows.slice(1); else col = 0;
+  const fi = head.findIndex(h => /^first\s*name$/.test(h)), li = head.findIndex(h => /^last\s*name$/.test(h));
+  if (fi >= 0 && li >= 0) return rows.map(r => `${r[fi] ?? ''} ${r[li] ?? ''}`);
+  return rows.map(r => r[col]);
+}
+function parseCSV(text){
+  return text.replace(/^﻿/, '').split(/\r?\n/).map(line => { const cells = []; let cur = '', q = false;
+    for (let i = 0; i < line.length; i++){ const ch = line[i];
+      if (ch === '"'){ if (q && line[i+1] === '"'){ cur += '"'; i++; } else q = !q; }
+      else if (ch === ',' && !q){ cells.push(cur); cur = ''; } else cur += ch; }
+    cells.push(cur); return cells; });
+}
+const tidy = s => /[a-z]/.test(s) ? s : s.split(' ').map(w => w.length > 1 ? w[0] + w.slice(1).toLowerCase() : w).join(' ');  // ALL CAPS → Title Case
+async function handleFile(f){
+  if (!f) return; const ext = f.name.split('.').pop().toLowerCase(); let list = [];
+  try {
+    if (ext === 'xlsx' || ext === 'xls'){
+      if (!window.XLSX) return toast('Excel reader not loaded (offline?). Save as CSV and try again.');
+      const wb = XLSX.read(await f.arrayBuffer());
+      list = fromRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1 }));
+    } else if (ext === 'csv'){ list = fromRows(parseCSV(await f.text())); }
+    else { list = (await f.text()).split(/\r?\n/); }
+  } catch(e){ return toast('Could not read that file'); }
+  const { out, dupes, blanks } = cleanList(list.map(x => tidy(String(x ?? '').trim())));
+  if (!out.length) return toast('No names found in that file');
+  if (!confirm(`Replace ${batchTitle(S.current)} with ${out.length} names from ${f.name}?`)) return;
+  setRoster(out, `Imported ${out.length} names` + (dupes ? ` · ${dupes} duplicates skipped` : '') + (blanks ? ` · ${blanks} blank rows` : ''));
+}
+
+/* ---------- wheel drawing ---------- */
+const cv = $('wheel'), ctx = cv.getContext('2d');
+let rot = 0, spinning = false, highlight = null;
+function resize(){ const dpr = window.devicePixelRatio || 1, w = $('stage').getBoundingClientRect().width;
+  cv.width = cv.height = Math.round(w * dpr); draw(); }
+function color(i, n){ return (i === n - 1 && n % COLORS.length === 1 && n > 1) ? COLORS[5] : COLORS[i % COLORS.length]; }
+function fit(text, max){ if (ctx.measureText(text).width <= max) return text;
+  while (text.length > 1 && ctx.measureText(text + '…').width > max) text = text.slice(0, -1); return text + '…'; }
+function draw(){
+  const W = cv.width, r = W / 2 - W * 0.015, list = onWheel(), n = list.length;
+  ctx.clearRect(0, 0, W, W); ctx.save(); ctx.translate(W / 2, W / 2);
+  if (!n){ ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fillStyle='#e8e9f2'; ctx.fill();
+    ctx.fillStyle='#6b7090'; ctx.font=`600 ${W*0.034}px system-ui`; ctx.textAlign='center';
+    ctx.fillText(B().names.length ? (present().length ? 'Everyone has been picked — Reset round' : 'Everyone is marked absent') : 'No names in this batch', 0, -W*0.15); ctx.restore(); return; }
+  const seg = Math.PI * 2 / n;
+  for (let i = 0; i < n; i++){
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,r,rot+i*seg,rot+(i+1)*seg); ctx.closePath();
+    ctx.fillStyle = color(i,n); ctx.fill();
+    if (list[i].id === highlight){ ctx.fillStyle='rgba(255,255,255,.5)'; ctx.fill(); }
+    if (n > 1){ ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=Math.max(1, W*0.002); ctx.stroke(); }
+  }
+  const fs = n === 1 ? W*0.05 : Math.max(W*0.014, Math.min(W*0.034, r*seg*0.6));
+  ctx.font = `600 ${fs}px system-ui`; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for (let i = 0; i < n; i++){
+    ctx.save(); ctx.rotate(rot + (i + .5) * seg);
+    ctx.fillStyle = list[i].id === highlight ? '#111' : '#fff';
+    ctx.fillText(fit(list[i].name, r*0.68), r - W*0.022, 0); ctx.restore();
+  }
+  ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.lineWidth=W*0.012; ctx.strokeStyle='#1d2033'; ctx.stroke();
+  ctx.restore();
+}
+function pointerIndex(n){ const a = ((-Math.PI/2 - rot) % (Math.PI*2) + Math.PI*2) % (Math.PI*2); return Math.min(n - 1, Math.floor(a / (Math.PI*2/n))); }
+
+/* ---------- sound ---------- */
+let ac = null, lastTick = 0;
+function tone(freq, len, vol){ try { ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+  const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = freq; g.gain.value = vol;
+  o.connect(g); g.connect(ac.destination); o.start(); g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + len); o.stop(ac.currentTime + len + .01); } catch(e){} }
+function tick(){ if (!S.settings.sound) return; const now = performance.now(); if (now - lastTick < 35) return; lastTick = now; tone(1400, .03, .04); }
+function ding(){ if (!S.settings.sound) return; tone(880, .25, .08); setTimeout(() => tone(1320, .35, .08), 120); }
+
+/* ---------- picking ---------- */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function spinTo(idx, n, dur, turns){
+  return new Promise(res => {
+    const seg = Math.PI*2/n, target = (idx + .2 + Math.random()*.6) * seg;
+    const delta = ((-Math.PI/2 - target - rot) % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
+    const start = rot, end = rot + delta + turns*Math.PI*2, t0 = performance.now(), list = onWheel();
+    let last = -1;
+    (function frame(t){ const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 4);
+      rot = start + (end - start) * e; draw();
+      const pi = pointerIndex(n); if (pi !== last){ last = pi; tick(); $('live').textContent = list[pi]?.name || ''; }
+      p < 1 ? requestAnimationFrame(frame) : res(); })(t0);
+  });
+}
+function setBusy(b){ spinning = b; $('spinBtn').disabled = b; [...$('batchSeg').children].forEach(x => x.disabled = b); }
+function record(mode, result){ B().history.unshift({ t: new Date().toISOString(), mode, result }); save(); renderHistory(); }
+async function go(){
+  if (spinning) return;
+  if (mode === 'groups') return makeGroups();
+  if (mode === 'order') return makeOrder();
+  const pool = onWheel(); if (!pool.length) return toast(present().length ? 'Everyone picked — press Reset round' : 'No students present');
+  let k = mode === 'single' ? 1 : Math.max(1, parseInt($('count').value) || 1);
+  if (k > pool.length){ toast(`Only ${pool.length} names left — picking all of them`); k = pool.length; }
+  const winners = shuffle(pool).slice(0, k);
+  setBusy(true); highlight = null;
+  const animate = k === 1 || S.settings.animate, dur = S.settings.spinSec * 1000;
+  if (animate){
+    for (let i = 0; i < winners.length; i++){
+      const list = onWheel();
+      await spinTo(list.indexOf(winners[i]), list.length, i === 0 ? dur : Math.max(1200, dur * .35), i === 0 ? Math.round(S.settings.spinSec * 1.3) : 3);
+      highlight = winners[i].id; draw();
+      $('live').textContent = (k > 1 ? `#${i+1}: ` : '🎉 ') + winners[i].name;
+      if (k > 1){ tone(1000, .12, .06); await sleep(700); } else await sleep(250);
+      winners[i].picked = true; highlight = null; refresh();
+    }
+  } else { winners.forEach(w => w.picked = true); refresh(); $('live').textContent = `Picked ${k} names`; }
+  lastPick[S.current] = winners.map(w => w.id); $('undoBtn').disabled = false;
+  record(k > 1 ? `Multiple (${k})` : 'Single', winners.map(w => w.name));
+  $('announce').textContent = 'Picked: ' + winners.map(w => w.name).join(', ');
+  ding(); showWinners(winners.map(w => w.name)); confetti();
+  setBusy(false);
+}
+function makeGroups(){
+  const pool = present(); if (pool.length < 2) return toast('Need at least 2 students present');
+  const g = Math.min(pool.length, Math.max(2, parseInt($('count').value) || 2)), groups = Array.from({ length:g }, () => []);
+  shuffle(pool).forEach((p, i) => groups[i % g].push(p.name));
+  record(`Groups (${g})`, groups); ding(); confetti();
+  showModal(`👥 ${g} groups · ${pool.length} students`, `<div class="groups">` + groups.map((x,i) => `<div class="group"><h4>Group ${i+1} (${x.length})</h4>${x.map(esc).join('<br>')}</div>`).join('') + `</div>`,
+    groups.map((x,i) => `Group ${i+1}: ${x.join(', ')}`).join('\n'));
+}
+function makeOrder(){
+  const pool = present(); if (!pool.length) return toast('No students present');
+  const order = shuffle(pool).map(p => p.name);
+  record(`Order (${order.length})`, order); ding();
+  showModal(`🔢 Random order · ${order.length} students`, `<ol class="order">${order.map(n => `<li>${esc(n)}</li>`).join('')}</ol>`, order.map((n,i) => `${i+1}. ${n}`).join('\n'));
+}
+
+/* ---------- rendering ---------- */
+let mode = 'single';
+function refresh(){
+  const b = B(), absent = b.names.filter(n => n.absent).length, picked = b.names.filter(n => n.picked && !n.absent).length;
+  $('stats').innerHTML = `<span class="badge">${b.names.length} total</span><span class="badge">${onWheel().length} on wheel</span>` +
+    `<span class="badge grey">${absent} absent</span><span class="badge green">${picked} picked</span>`;
+  const q = $('search').value.trim().toLowerCase();
+  const shown = b.names.filter(n => !q || n.name.toLowerCase().includes(q));
+  $('chips').innerHTML = shown.map(n => `<span class="chip ${n.absent ? 'absent' : n.picked ? 'picked' : ''}" data-id="${n.id}">${esc(n.name)}</span>`).join('') || `<small class="hint">${q ? 'No match.' : 'No names yet — use Manage roster.'}</small>`;
+  draw();
+}
+function renderBatchSeg(){
+  $('batchSeg').innerHTML = DATA.batches.map(b => `<button data-batch="${b.id}" class="${b.id === S.current ? 'on' : ''}">${esc(b.title)} <small style="opacity:.75">(${S.batches[b.id].names.length})</small></button>`).join('');
+}
+function switchBatch(id){
+  if (spinning || id === S.current || !S.batches[id]) return;
+  S.current = id; highlight = null; save();
+  $('names').value = B().names.map(n => n.name).join('\n'); $('search').value = '';
+  $('undoBtn').disabled = !lastPick[id]?.length;
+  renderBatchSeg(); refresh(); renderHistory();
+  $('live').textContent = `${batchTitle(id)} ready — ${onWheel().length} on the wheel`;
+}
+function renderHistory(){
+  $('histBatch').textContent = batchTitle(S.current);
+  $('hist').innerHTML = B().history.map(h => `<div><small>${new Date(h.t).toLocaleString([], { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })} · ${h.mode}</small><br>` +
+    (Array.isArray(h.result[0]) ? h.result.map((g,i) => `<b>G${i+1}:</b> ${g.map(esc).join(', ')}`).join('<br>') : h.result.map(esc).join(', ')) + `</div>`).join('') || '<small>No picks yet.</small>';
+}
+let lastCopy = '';
+function showModal(title, html, copy){ $('mTitle').textContent = title; $('mBody').innerHTML = html; lastCopy = copy; $('overlay').classList.add('show'); $('closeBtn').focus(); }
+function showWinners(list){
+  showModal(list.length > 1 ? `🎉 ${list.length} names picked` : '🎉 And the pick is…',
+    `<div class="winners">` + list.map((n,i) => `<span class="winner ${list.length === 1 ? 'solo' : ''}">${list.length > 1 ? `<b>${i+1}</b>` : ''}${esc(n)}</span>`).join('') + `</div>`,
+    list.join('\n'));
+}
+const closeModal = () => $('overlay').classList.remove('show');
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let tt; function toast(m){ const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 2800); }
+function download(name, text){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + text], { type:'text/csv' })); a.download = name; a.click(); }
+
+/* ---------- confetti ---------- */
+function confetti(){
+  if (!S.settings.confetti) return;
+  const c = $('confetti'), x = c.getContext('2d'); c.width = innerWidth; c.height = innerHeight;
+  const ps = Array.from({ length:140 }, () => ({ x: Math.random()*c.width, y: -20 - Math.random()*c.height*.4, vx: (Math.random()-.5)*4, vy: 2 + Math.random()*4, s: 5 + Math.random()*6, r: Math.random()*6, col: COLORS[randInt(COLORS.length)] }));
+  const t0 = performance.now();
+  (function f(t){ x.clearRect(0,0,c.width,c.height);
+    ps.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += .05; p.r += .1; x.save(); x.translate(p.x,p.y); x.rotate(p.r); x.fillStyle = p.col; x.fillRect(-p.s/2,-p.s/4,p.s,p.s/2); x.restore(); });
+    t - t0 < 2600 ? requestAnimationFrame(f) : x.clearRect(0,0,c.width,c.height); })(t0);
+}
+
+/* ---------- actions ---------- */
+function resetRound(){ if (!confirm(`Put all picked names back on the wheel for ${batchTitle(S.current)}?`)) return;
+  B().names.forEach(n => n.picked = false); lastPick[S.current] = null; $('undoBtn').disabled = true; highlight = null; save(); refresh(); toast('Round reset — everyone is back on the wheel'); }
+function undo(){ const ids = lastPick[S.current]; if (!ids?.length) return;
+  B().names.forEach(n => { if (ids.includes(n.id)) n.picked = false; }); lastPick[S.current] = null; $('undoBtn').disabled = true; save(); refresh(); toast(`Put back: ${ids.length} name(s)`); }
+function togglePresent(){ document.body.classList.toggle('present');
+  if (document.body.classList.contains('present')) document.documentElement.requestFullscreen?.().catch(()=>{}); else if (document.fullscreenElement) document.exitFullscreen();
+  setTimeout(resize, 150); }
+function setMode(m){ mode = m;
+  [...$('modeSeg').children].forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  $('countRow').style.display = (m === 'multi' || m === 'groups') ? 'flex' : 'none';
+  $('countLabel').textContent = m === 'groups' ? 'Number of groups' : 'How many names?';
+  $('count').value = m === 'groups' ? 6 : 5; $('modeHint').textContent = MODE_HINT[m];
+  $('spinBtn').textContent = { single:'SPIN', multi:'SPIN', groups:'MAKE', order:'SHUFFLE' }[m];
+  $('spinBtn').style.fontSize = m === 'order' ? 'clamp(11px,1.8vw,16px)' : ''; }
+
+/* ---------- events ---------- */
+$('spinBtn').onclick = go;
+$('batchSeg').onclick = e => { const b = e.target.closest('button'); if (b) switchBatch(b.dataset.batch); };
+$('modeSeg').onclick = e => { const m = e.target.dataset.mode; if (m && !spinning) setMode(m); };
+$('search').oninput = refresh;
+$('chips').onclick = e => { const id = +e.target.dataset.id; if (!id || spinning) return; const n = B().names.find(n => n.id === id);
+  if (n.absent) n.absent = false; else if (n.picked) n.picked = false; else n.absent = true; save(); refresh(); };
+$('allPresentBtn').onclick = () => { B().names.forEach(n => n.absent = false); save(); refresh(); };
+$('applyBtn').onclick = () => { const { out, dupes } = cleanList($('names').value.split(/\r?\n/)); if (!out.length) return toast('List is empty');
+  setRoster(out, `Saved ${out.length} names` + (dupes ? ` · ${dupes} duplicates removed` : '')); };
+$('restoreBtn').onclick = () => { const b = DATA.batches.find(b => b.id === S.current);
+  if (!confirm(`Restore the built-in list for ${b.title} (${b.names.length} names)? Absent/picked marks will be cleared.`)) return;
+  B().names = b.names.map(n => mk(n)); B().custom = false; lastPick[S.current] = null; $('names').value = b.names.join('\n'); save(); renderBatchSeg(); refresh(); toast('Built-in list restored'); };
+$('templateBtn').onclick = () => download('students_template.csv', 'Name\nFirst Student\nSecond Student\n');
+$('resetBtn').onclick = resetRound;
+$('undoBtn').onclick = undo;
+[['optRemove','removePicked'],['optAnimate','animate'],['optSound','sound'],['optConfetti','confetti']].forEach(([el, k]) => {
+  $(el).checked = S.settings[k]; $(el).onchange = () => { S.settings[k] = $(el).checked; save(); refresh(); }; });
+$('spinSec').oninput = () => { S.settings.spinSec = +$('spinSec').value; $('spinSecLbl').textContent = S.settings.spinSec + ' s'; save(); };
+$('closeBtn').onclick = closeModal;
+$('overlay').onclick = e => { if (e.target.id === 'overlay') closeModal(); };
+$('copyBtn').onclick = () => navigator.clipboard?.writeText(lastCopy).then(() => toast('Copied'), () => toast('Copy not allowed here'));
+$('exportBtn').onclick = () => { const h = B().history; if (!h.length) return toast('Nothing to export yet');
+  const rows = [['Time','Batch','Mode','Position / Group','Name']], bt = batchTitle(S.current);
+  h.slice().reverse().forEach(e => { const t = new Date(e.t).toLocaleString();
+    Array.isArray(e.result[0]) ? e.result.forEach((g,i) => g.forEach(n => rows.push([t, bt, e.mode, `Group ${i+1}`, n]))) : e.result.forEach((n,i) => rows.push([t, bt, e.mode, i+1, n])); });
+  download(`${bt.replace(/\s+/g,'_')}_pick_history.csv`, rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n')); };
+$('clearHistBtn').onclick = () => { if (!confirm(`Clear history for ${batchTitle(S.current)}?`)) return; B().history = []; save(); renderHistory(); };
+$('presentBtn').onclick = togglePresent;
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && document.body.classList.contains('present')){ document.body.classList.remove('present'); setTimeout(resize, 150); } });
+const drop = $('drop');
+drop.onclick = () => $('file').click();
+$('file').onchange = e => { handleFile(e.target.files[0]); e.target.value = ''; };
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); handleFile(e.dataTransfer.files[0]); };
+document.addEventListener('keydown', e => {
+  if (e.target.matches('textarea,input') || e.metaKey || e.ctrlKey || e.altKey) return;
+  const open = $('overlay').classList.contains('show');
+  if (e.code === 'Escape'){ closeModal(); return; }
+  if (e.code === 'Space' || e.code === 'Enter'){ e.preventDefault(); open ? closeModal() : go(); return; }
+  if (open || spinning) return;
+  if (e.key === 'f' || e.key === 'F') togglePresent();
+  else if (e.key === 'r' || e.key === 'R') resetRound();
+  else if (/^[1-9]$/.test(e.key) && DATA.batches[+e.key - 1]) switchBatch(DATA.batches[+e.key - 1].id);
+});
+addEventListener('resize', resize);
+
+/* ---------- init ---------- */
+load();
+$('course').textContent = DATA.course ? '· ' + DATA.course : '';
+$('spinSec').value = S.settings.spinSec; $('spinSecLbl').textContent = S.settings.spinSec + ' s';
+$('names').value = B().names.map(n => n.name).join('\n');
+renderBatchSeg(); refresh(); renderHistory(); resize();
+$('live').textContent = `${batchTitle(S.current)} ready — ${onWheel().length} on the wheel`;
+</script>
+</body>
+</html>
