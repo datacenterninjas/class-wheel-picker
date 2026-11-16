@@ -11,6 +11,13 @@ A random name wheel for picking students in class, built for two batches of abou
   - After a pick, press **+2** (good answer), **+1** (tried) or **0** (no answer). The keyboard shortcuts are `2` / `1` / `0`.
   - Switch the roster to *Tap = give credit* to reward a volunteer.
   - Each name shows its total, and the Credits card ranks the batch.
+- **Negative marking:** **−1** / **−2** buttons next to the credit buttons (key `-` gives −1). They work after a spin, from the hands-up queue, and in *Tap = give credit* mode. Negative totals show in red.
+- **Hands up by QR** (needs the Sheet connection):
+  - Press **✋ Start hands-up** (or `H`). A QR and a 4-letter code appear beside the wheel, and stay visible in presentation mode.
+  - Students scan it on their phone and type part of their name or their roll number. If several names match, they tap theirs.
+  - Raised hands queue in order. Press **Pick next** (or `N`) to get the credit buttons for the first student. ✔ picks a particular student and ✕ removes one.
+  - Students see their place in the queue, and their phone tells them when they're up.
+  - Rules: one waiting hand per name and per phone. A new round or *End* clears the queue. Click the QR to show it full screen.
 - **Works offline:** credits are saved on the device first and sync to the Sheet when the connection comes back. Resending never double-counts.
 - **Undo last credit:** adds a minus row to the Sheet. The Log is never edited.
 - **Optional rules** (in *Google Sheet connection*):
@@ -23,7 +30,8 @@ A random name wheel for picking students in class, built for two batches of abou
 ## Where the data lives
 | What | Where |
 |---|---|
-| Student names | Google Sheet → **Roster** tab (`Batch`, `Name`). They are not in this repo. |
+| Student names | Google Sheet → **Roster** tab (`Batch`, `Name`, optional `Roll`). They are not in this repo. Add roll numbers in column C if students should be able to type them on the hands-up page. |
+| Hands-up queue | Google Sheet → **Hands** tab: time, round code, batch, name, phone id, status (waiting / picked / removed / lowered / closed) |
 | Every credit | Google Sheet → **Log** tab, one row each: time, batch, name, points, source (wheel / manual / undo), class date |
 | Totals | Google Sheet → **Totals** tab (a live QUERY over the Log) |
 | Web app URL and key | Only in each browser's localStorage, never in the code |
@@ -55,4 +63,4 @@ The batch ids and titles are in `students.js`. A title must match column A of th
 Open `index.html` in a browser, or run `python3 -m http.server` in this folder.
 
 ## Keyboard
-`Space` spin / close popup (skip credit) · `2` `1` `0` credit after a single pick · `1` `2` switch batch · `F` full screen · `R` reset round · `Esc` close popup
+`Space` spin / close popup (skip credit) · `2` `1` `0` `-` credit after a single pick · `H` start hands-up / show QR big · `N` pick next hand · `1` `2` switch batch · `F` full screen · `R` reset round · `Esc` close popup

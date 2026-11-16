@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>✋ Raise your hand</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✋</text></svg>">
+<style>
+:root{--bg:#f4f5fb;--card:#fff;--ink:#1d2033;--muted:#6b7090;--line:#e3e5f0;--accent:#4f46e5;--accent2:#eef0ff}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:flex;justify-content:center}
+main{width:100%;max-width:440px;padding:28px 18px}
+h1{font-size:26px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 22px;font-size:15px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+label{display:block;font-size:14px;font-weight:600;margin-bottom:8px}
+input{width:100%;font:inherit;font-size:20px;padding:14px;border:2px solid var(--line);border-radius:12px;outline:none}
+input:focus{border-color:var(--accent)}
+button{width:100%;font:inherit;font-size:18px;font-weight:700;padding:14px;border-radius:12px;border:0;background:var(--accent);color:#fff;margin-top:12px;cursor:pointer}
+button.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);font-weight:600;font-size:16px}
+button:disabled{opacity:.6}
+.opts button{background:var(--accent2);color:var(--accent);text-align:left}
+.msg{margin-top:14px;font-size:15px;min-height:20px}
+.msg.err{color:#b91c1c}
+.big{font-size:64px;font-weight:800;text-align:center;line-height:1;margin:6px 0}
+.center{text-align:center}
+.name{font-size:20px;font-weight:700;text-align:center}
+.muted{color:var(--muted);font-size:14px}
+.up{background:#dcfce7;border-color:#86efac}
+</style>
+</head>
+<body>
+<main>
+  <h1>✋ Raise your hand</h1>
+  <p class="sub" id="sub">Connecting…</p>
+
+  <form class="card" id="form" hidden autocomplete="off">
+    <label for="q">Your name or roll number</label>
+    <input id="q" name="q" placeholder="e.g. Priya or 23MBA045" autocapitalize="words" spellcheck="false" required minlength="2">
+    <button id="go" type="submit">Raise my hand</button>
+    <div class="opts" id="opts"></div>
+    <div class="msg" id="msg"></div>
+  </form>
+
+  <div class="card center" id="wait" hidden>
+    <div class="muted" id="waitLbl">You are</div>
+    <div class="big" id="pos"></div>
+    <div class="muted" id="posLbl">in the queue</div>
+    <p class="name" id="who"></p>
+    <button class="ghost" id="lower" type="button">Lower my hand</button>
+    <div class="msg" id="msg2"></div>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const P = new URLSearchParams(location.hash.slice(1));
+const DEP = (P.get('d') || '').replace(/[^\w-]/g, ''), CODE = (P.get('c') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const API = `https://script.google.com/macros/s/${DEP}/exec`;
+const store = { get: k => { try { return localStorage.getItem(k); } catch(e){ return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch(e){} } };
+let device = store.get('raise:device');
+if (!device){ device = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); store.set('raise:device', device); }
+let pollTimer = null, polls = 0;
+
+async function api(method, payload, tries = 4){
+  let last;
+  for (let i = 0; i < tries; i++){
+    try {
+      const r = method === 'GET'
+        ? await fetch(`${API}?${new URLSearchParams(payload)}`)
+        : await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+      const res = await r.json();
+      if (res.ok === false) throw new Error(res.error || 'Server error');
+      return res;
+    } catch(e){ last = e; await new Promise(r => setTimeout(r, 500 * (i + 1) + Math.random() * 700)); }   // busy class: back off and retry
+  }
+  throw last;
+}
+
+function say(el, text, err){ $(el).textContent = text; $(el).className = 'msg' + (err ? ' err' : ''); }
+const clearAgain = () => document.querySelectorAll('.again').forEach(b => b.remove());
+function showForm(){ clearAgain(); $('wait').hidden = true; $('form').hidden = false; $('opts').innerHTML = ''; }
+function showWait(name, pos){
+  clearAgain(); $('form').hidden = true; $('wait').hidden = false; $('wait').classList.remove('up'); $('lower').hidden = false;
+  $('waitLbl').textContent = 'You are'; $('pos').textContent = '#' + pos; $('posLbl').textContent = pos === 1 ? 'next in the queue' : 'in the queue';
+  $('who').textContent = name; say('msg2', '');
+}
+function showEnd(title, text, up){
+  $('form').hidden = true; $('wait').hidden = false; $('wait').classList.toggle('up', !!up); $('lower').hidden = true;
+  $('waitLbl').textContent = ''; $('pos').textContent = title; $('posLbl').textContent = ''; say('msg2', text);
+  document.querySelectorAll('.again').forEach(b => b.remove());
+  const again = document.createElement('button'); again.textContent = 'Raise my hand again'; again.className = 'ghost again'; again.type = 'button';
+  again.onclick = () => { again.remove(); showForm(); };
+  $('msg2').after(again);
+}
+
+async function raise(extra){
+  const q = $('q').value.trim();
+  if (q.length < 2 && !extra) return say('msg', 'Type at least 2 letters', true);
+  $('go').disabled = true; say('msg', 'Sending…');
+  try {
+    const res = await api('POST', { action: 'raise', c: CODE, q, device, ...extra });
+    $('opts').innerHTML = '';
+    if (res.status === 'queued'){ store.set('raise:last', res.name); showWait(res.name, res.position); startPolling(); }
+    else if (res.status === 'choose'){
+      say('msg', 'Which one are you?');
+      $('opts').innerHTML = res.options.map(n => `<button type="button" data-n="${n.replace(/"/g, '&quot;')}">${n.replace(/</g, '&lt;')}</button>`).join('');
+    }
+    else if (res.status === 'toomany') say('msg', `${res.count} students match. Type more of your name.`, true);
+    else if (res.status === 'notfound') say('msg', 'No student in this batch matches that. Check the spelling or try your roll number.', true);
+    else if (res.status === 'short') say('msg', 'Type at least 2 letters', true);
+    else if (res.status === 'device') say('msg', `This phone already raised a hand for ${res.name}. One hand per phone.`, true);
+    else if (res.status === 'closed') closed();
+  } catch(e){ say('msg', 'Could not reach the class right now. Try again. (' + e.message + ')', true); }
+  $('go').disabled = false;
+}
+
+function closed(){ clearTimeout(pollTimer); $('form').hidden = true; $('wait').hidden = true; $('sub').textContent = 'Hands-up is closed. Wait for your teacher to start a new one and scan the new QR.'; }
+
+function startPolling(){ clearTimeout(pollTimer); polls = 0; pollTimer = setTimeout(poll, 6000); }
+async function poll(){
+  if (document.visibilityState !== 'visible'){ pollTimer = setTimeout(poll, 6000); return; }
+  polls++;
+  try {
+    const s = await api('GET', { action: 'mystatus', c: CODE, device }, 2);
+    if (s.status === 'waiting'){ showWait(s.name, s.position); }
+    else if (s.status === 'picked'){ showEnd('🎉', `${s.name}, you're up! Answer now.`, true); return; }
+    else if (s.status === 'removed'){ showEnd('—', 'Your teacher took you off the queue.'); return; }
+    else if (s.status === 'lowered' || s.status === 'none'){ showForm(); return; }
+    else { closed(); return; }
+  } catch(e){ /* keep showing last state */ }
+  if (polls < 150) pollTimer = setTimeout(poll, 8000);   // stop after ~20 min
+}
+
+$('form').onsubmit = e => { e.preventDefault(); raise(); };
+$('opts').onclick = e => { const b = e.target.closest('[data-n]'); if (b) raise({ name: b.dataset.n }); };
+$('lower').onclick = async () => {
+  $('lower').disabled = true;
+  try { await api('POST', { action: 'lower', c: CODE, device }); clearTimeout(pollTimer); showForm(); say('msg', 'Hand lowered.'); }
+  catch(e){ say('msg2', 'Could not lower: ' + e.message, true); }
+  $('lower').disabled = false;
+};
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !$('wait').hidden && !$('lower').hidden){ clearTimeout(pollTimer); poll(); } });
+
+(async function init(){
+  if (!DEP || !CODE){ $('sub').textContent = 'This link is incomplete. Scan the QR on the screen again.'; return; }
+  $('q').value = store.get('raise:last') || '';
+  try {
+    const r = await api('GET', { action: 'round', c: CODE });
+    if (!r.open) return closed();
+    $('sub').textContent = `${r.batch} · code ${r.code}`;
+    const s = await api('GET', { action: 'mystatus', c: CODE, device }, 2).catch(() => ({}));
+    if (s.status === 'waiting'){ showWait(s.name, s.position); startPolling(); }
+    else { showForm(); $('q').focus(); }
+  } catch(e){ $('sub').textContent = 'Could not reach the class. Check your internet and scan again.'; }
+})();
+</script>
+</body>
+</html>
