@@ -20,7 +20,7 @@ const CR = (() => {
   const connected = () => !!(cfg.url && cfg.key);
   const labelOf = id => batchTitle(id);
   const idFor = label => { const l = String(label).trim().toLowerCase(); return DATA.batches.find(b => b.id.toLowerCase() === l || b.title.toLowerCase() === l)?.id; };
-  const plus = n => (n > 0 ? '+' : '') + n;
+  const plus = n => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
   function readJSON(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } }
   function writeJSON(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
   function persist(){ writeJSON(DATA_KEY, { snap, snapDate, pending, sheetUrl }); }
@@ -148,6 +148,7 @@ const CR = (() => {
     if (!total) return 0;
     writeJSON(ROSTER_KEY, cache); save();
     renderBatchSeg(); $('names').value = B().names.map(n => n.name).join('\n'); refresh();
+    $('live').textContent = `${batchTitle(S.current)} ready — ${onWheel().length} on the wheel`;
     return total;
   }
 
@@ -188,7 +189,7 @@ const CR = (() => {
     const quiet = rows.length - ranked.length;
     $('crBoard').innerHTML = ranked.length
       ? ranked.map((r, i) => `<div class="cr-row"><span class="cr-rank">${i + 1}</span><span class="cr-name">${esc(r.name)}</span>` +
-          `${r.today ? `<small class="cr-today">${plus(r.today)} today</small>` : ''}<b>${r.total}</b></div>`).join('') +
+          `${r.today ? `<small class="cr-today${r.today < 0 ? ' neg' : ''}">${plus(r.today)} today</small>` : ''}<b${r.total < 0 ? ' class="neg"' : ''}>${r.total}</b></div>`).join('') +
         (quiet ? `<p class="hint">${quiet} student${quiet === 1 ? '' : 's'} with no credits yet</p>` : '')
       : '<p class="hint">No credits yet. Spin, then press +2 / +1 / 0.</p>';
   }
@@ -204,7 +205,9 @@ const CR = (() => {
       `<button class="btn pts p2" data-pts="2">${lbl('+2', 'good answer')}</button>` +
       `<button class="btn pts p1" data-pts="1">${lbl('+1', 'tried')}</button>` +
       `<button class="btn pts p0" data-pts="0">${lbl('0', 'no answer')}</button>` +
-      (solo ? `<p class="hint">${c.total} credit${c.total === 1 ? '' : 's'} so far${c.today ? ` · ${plus(c.today)} today` : ''} · keys <kbd>2</kbd> <kbd>1</kbd> <kbd>0</kbd> · <kbd>Space</kbd> skip</p>` : '') +
+      `<button class="btn pts pn" data-pts="-1">${lbl('−1', 'penalty')}</button>` +
+      `<button class="btn pts pn" data-pts="-2">${lbl('−2', 'penalty')}</button>` +
+      (solo ? `<p class="hint">${c.total} credit${Math.abs(c.total) === 1 ? '' : 's'} so far${c.today ? ` · ${plus(c.today)} today` : ''} · keys <kbd>2</kbd> <kbd>1</kbd> <kbd>0</kbd> <kbd>-</kbd> · <kbd>Space</kbd> skip</p>` : '') +
       `</div>`;
   }
 
@@ -261,5 +264,5 @@ const CR = (() => {
   }
 
   return { loadLocal, init, render, get, chipCount, award, undo, pickWinners, awardBlock, openManual, onAwardClick,
-           tapMode, connected, pushRoster, reloadRoster, sync, fetchState };
+           tapMode, connected, pushRoster, reloadRoster, sync, fetchState, call, idFor, url: () => cfg.url };
 })();

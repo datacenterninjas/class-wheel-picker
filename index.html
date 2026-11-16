@@ -8,6 +8,8 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎡</text></svg>">
 <script src="students.js"></script>
 <script src="credits.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="hands.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <style>
 :root{--bg:#f4f5fb;--card:#fff;--ink:#1d2033;--muted:#6b7090;--line:#e3e5f0;--accent:#4f46e5;--accent2:#eef0ff}
@@ -43,7 +45,8 @@ details summary{cursor:pointer;font-size:12px;text-transform:uppercase;letter-sp
 .chip.picked{background:#dcfce7;color:#166534}
 .legend{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .legend .chip{cursor:default}
-.center{display:flex;flex-direction:column;align-items:center;gap:12px}
+.center{display:flex;justify-content:center;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.wheelcol{display:flex;flex-direction:column;align-items:center;gap:12px}
 .stage{position:relative;width:min(640px,90vw);aspect-ratio:1}
 #wheel{width:100%;height:100%;display:block}
 .pointer{position:absolute;top:-4px;left:50%;transform:translateX(-50%);border-left:18px solid transparent;border-right:18px solid transparent;border-top:34px solid var(--ink);filter:drop-shadow(0 2px 2px rgba(0,0,0,.3));z-index:2}
@@ -89,8 +92,10 @@ kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-
 .award .pts small{display:block;font-size:11px;font-weight:500;opacity:.85}
 .award .p2{background:#16a34a;border-color:#16a34a;color:#fff}
 .award .p1{background:var(--accent);border-color:var(--accent);color:#fff}
+.award .pn{background:#fff;border-color:#fca5a5;color:#b91c1c}
 .award .hint{flex-basis:100%;text-align:center}
-.award-list{max-width:560px;margin:18px auto 0;text-align:left}
+.chip .cr.neg,.neg{color:#b91c1c !important}
+.award-list{max-width:680px;margin:18px auto 0;text-align:left}
 .award-list .award{justify-content:flex-end;margin:0;padding:7px 0;border-bottom:1px solid var(--line);flex-wrap:nowrap}
 .award-list .award-name{flex:1;font-weight:600}
 .award-list .pts{font-size:14px;padding:6px 12px;min-width:54px}
@@ -104,6 +109,27 @@ kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-
 .field{display:block;font-size:12px;color:var(--muted);margin:10px 0 3px}
 .field input[type=text],.field input[type=password]{display:block;width:100%;margin-top:3px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;color:var(--ink)}
 #crStatus{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* hands-up */
+.hands{display:none;width:270px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center}
+body.hands-on .hands{display:block}
+body.hands-on .stage{width:min(425px,90vw)}
+body.present.hands-on .stage{width:min(80vh,calc(92vw - 300px))}
+.hands h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
+.hands .qr{cursor:zoom-in;background:#fff;border-radius:10px;line-height:0}
+.hands .qr svg{width:100%;height:auto}
+.hu-code{font-size:15px;color:var(--muted);margin-top:6px}
+.hu-code b{font:800 26px ui-monospace,monospace;color:var(--ink);letter-spacing:.12em;margin-left:4px}
+.hu-code.big b{font-size:44px}
+.qr-big{width:min(62vh,80vw);margin:0 auto;line-height:0}.qr-big svg{width:100%;height:auto}
+.hu-head{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;font-size:13px}
+.hu-list{list-style:none;margin:6px 0 0;padding:0;max-height:260px;overflow:auto;text-align:left}
+.hu-list li{display:flex;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
+.hu-pos{width:20px;height:20px;border-radius:50%;background:var(--accent2);color:var(--accent);font-weight:700;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.hu-list li:first-child .hu-pos{background:var(--accent);color:#fff}
+.hu-name{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hu-list small{color:var(--muted)}
+.hu-list .btn{padding:2px 7px}
+#huNextBtn{flex:1}
 </style>
 </head>
 <body>
@@ -154,13 +180,27 @@ kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-
 
   <!-- CENTER: wheel -->
   <section class="center">
-    <div class="stage" id="stage">
-      <div class="pointer"></div>
-      <canvas id="wheel" aria-label="Name wheel"></canvas>
-      <button class="spin-btn" id="spinBtn">SPIN</button>
+    <div class="wheelcol">
+      <div class="stage" id="stage">
+        <div class="pointer"></div>
+        <canvas id="wheel" aria-label="Name wheel"></canvas>
+        <button class="spin-btn" id="spinBtn">SPIN</button>
+      </div>
+      <div class="live" id="live">Press SPIN or hit Space</div>
+      <div class="sr" aria-live="assertive" id="announce"></div>
     </div>
-    <div class="live" id="live">Press SPIN or hit Space</div>
-    <div class="sr" aria-live="assertive" id="announce"></div>
+    <aside class="hands" id="handsPanel">
+      <h2>✋ Hands up · <span id="huBatch"></span></h2>
+      <div class="qr" id="huQR" title="Click to show it big"></div>
+      <div class="hu-code">Code <b id="huCode"></b></div>
+      <p class="hint">Scan → type part of your name or roll no.</p>
+      <div class="hu-head"><b id="huCount"></b><small class="neg" id="huErr"></small></div>
+      <ol class="hu-list" id="huList"></ol>
+      <div class="row">
+        <button class="btn primary" id="huNextBtn" title="Shortcut: N">Pick next ▶</button>
+        <button class="btn small" id="huStopBtn">End</button>
+      </div>
+    </aside>
   </section>
 
   <!-- RIGHT: settings + history -->
@@ -188,7 +228,12 @@ kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-
         <button class="btn" id="undoBtn" disabled>↶ Undo last pick</button>
         <button class="btn" id="resetBtn" title="Shortcut: R">↺ Reset round</button>
       </div>
-      <p class="hint"><kbd>Space</kbd> spin · <kbd>1</kbd>/<kbd>2</kbd> batch · <kbd>F</kbd> full screen · <kbd>Esc</kbd> close · after a pick: <kbd>2</kbd>/<kbd>1</kbd>/<kbd>0</kbd> credit</p>
+      <p class="hint"><kbd>Space</kbd> spin · <kbd>1</kbd>/<kbd>2</kbd> batch · <kbd>F</kbd> full screen · <kbd>Esc</kbd> close · after a pick: <kbd>2</kbd>/<kbd>1</kbd>/<kbd>0</kbd>/<kbd>-</kbd> credit · <kbd>H</kbd> hands-up QR · <kbd>N</kbd> next hand</p>
+    </div>
+    <div class="card" id="handsCard">
+      <h2>Hands up (QR)</h2>
+      <p class="hint" style="margin:0 0 8px">Students scan a QR next to the wheel and join a queue. Needs the Google Sheet connection.</p>
+      <div class="row"><button class="btn primary small" id="huStartBtn">✋ Start hands-up</button><button class="btn small" id="huEndBtn" hidden>End</button></div>
     </div>
     <div class="card" id="creditsCard">
       <h2>Credits — <span id="crBatch"></span></h2>
@@ -421,7 +466,7 @@ function refresh(){
   const q = $('search').value.trim().toLowerCase();
   const shown = b.names.filter(n => !q || n.name.toLowerCase().includes(q));
   $('chips').innerHTML = shown.map(n => { const c = CR.chipCount(n.name);
-    return `<span class="chip ${n.absent ? 'absent' : n.picked ? 'picked' : ''}" data-id="${n.id}">${esc(n.name)}${c ? `<b class="cr">${c}</b>` : ''}</span>`; }).join('') ||
+    return `<span class="chip ${n.absent ? 'absent' : n.picked ? 'picked' : ''}" data-id="${n.id}">${esc(n.name)}${c ? `<b class="cr${c < 0 ? ' neg' : ''}">${c}</b>` : ''}</span>`; }).join('') ||
     `<small class="hint">${q ? 'No match.' : 'No names yet. Connect the Google Sheet (Credits card) or use Manage roster.'}</small>`;
   draw(); CR.render();
 }
@@ -443,11 +488,11 @@ function renderHistory(){
 }
 let lastCopy = '';
 function showModal(title, html, copy){ $('mTitle').textContent = title; $('mBody').innerHTML = html; lastCopy = copy; $('overlay').classList.add('show'); $('closeBtn').focus(); }
-function showWinners(list){
+function showWinners(list, source = 'wheel', title){
   const solo = list.length === 1;
-  showModal(solo ? '🎉 And the pick is…' : `🎉 ${list.length} names picked`,
+  showModal(title || (solo ? '🎉 And the pick is…' : `🎉 ${list.length} names picked`),
     `<div class="winners">` + list.map((n,i) => `<span class="winner ${solo ? 'solo' : ''}">${solo ? '' : `<b>${i+1}</b>`}${esc(n)}</span>`).join('') + `</div>` +
-    (solo ? CR.awardBlock(list[0], 'wheel', true) : `<div class="award-list">${list.map(n => CR.awardBlock(n, 'wheel', false)).join('')}</div>`),
+    (solo ? CR.awardBlock(list[0], source, true) : `<div class="award-list">${list.map(n => CR.awardBlock(n, source, false)).join('')}</div>`),
     list.join('\n'));
 }
 const closeModal = () => $('overlay').classList.remove('show');
@@ -526,11 +571,14 @@ document.addEventListener('keydown', e => {
   if (e.target.matches('textarea,input') || e.metaKey || e.ctrlKey || e.altKey) return;
   const open = $('overlay').classList.contains('show');
   if (e.code === 'Escape'){ closeModal(); return; }
-  if (open && /^[0-2]$/.test(e.key)){ $('mBody').querySelector(`.award[data-solo]:not(.done) [data-pts="${e.key}"]`)?.click(); return; }
+  const pk = e.key === '-' ? '-1' : e.key;
+  if (open && /^(0|1|2|-1)$/.test(pk)){ $('mBody').querySelector(`.award[data-solo]:not(.done) [data-pts="${pk}"]`)?.click(); return; }
   if (e.code === 'Space' || e.code === 'Enter'){ e.preventDefault(); open ? closeModal() : go(); return; }
   if (open || spinning) return;
   if (e.key === 'f' || e.key === 'F') togglePresent();
   else if (e.key === 'r' || e.key === 'R') resetRound();
+  else if (e.key === 'n' || e.key === 'N') HU.pickNext();
+  else if (e.key === 'h' || e.key === 'H') HU.isOpen() ? HU.enlarge() : HU.start();
   else if (/^[1-9]$/.test(e.key) && DATA.batches[+e.key - 1]) switchBatch(DATA.batches[+e.key - 1].id);
 });
 addEventListener('resize', resize);
@@ -541,7 +589,7 @@ load();
 $('course').textContent = DATA.course ? '· ' + DATA.course : '';
 $('spinSec').value = S.settings.spinSec; $('spinSecLbl').textContent = S.settings.spinSec + ' s';
 $('names').value = B().names.map(n => n.name).join('\n');
-renderBatchSeg(); refresh(); renderHistory(); resize(); CR.init();
+renderBatchSeg(); refresh(); renderHistory(); resize(); CR.init(); HU.init();
 $('live').textContent = `${batchTitle(S.current)} ready — ${onWheel().length} on the wheel`;
 </script>
 </body>
