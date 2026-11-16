@@ -7,6 +7,7 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎡</text></svg>">
 <script src="students.js"></script>
+<script src="credits.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <style>
 :root{--bg:#f4f5fb;--card:#fff;--ink:#1d2033;--muted:#6b7090;--line:#e3e5f0;--accent:#4f46e5;--accent2:#eef0ff}
@@ -79,6 +80,30 @@ body.present main{grid-template-columns:1fr}
 body.present .side,body.present .stats{display:none}
 body.present .stage{width:min(80vh,92vw)}
 kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:#fafafa}
+/* credits */
+.badge.amber{background:#fef3c7;color:#92400e}
+.chip .cr{font-weight:700;color:var(--accent);margin-left:4px}
+.chip.picked .cr{color:#166534}
+.award{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:20px}
+.award .pts{font-size:20px;font-weight:800;padding:10px 20px;min-width:96px;line-height:1.15}
+.award .pts small{display:block;font-size:11px;font-weight:500;opacity:.85}
+.award .p2{background:#16a34a;border-color:#16a34a;color:#fff}
+.award .p1{background:var(--accent);border-color:var(--accent);color:#fff}
+.award .hint{flex-basis:100%;text-align:center}
+.award-list{max-width:560px;margin:18px auto 0;text-align:left}
+.award-list .award{justify-content:flex-end;margin:0;padding:7px 0;border-bottom:1px solid var(--line);flex-wrap:nowrap}
+.award-list .award-name{flex:1;font-weight:600}
+.award-list .pts{font-size:14px;padding:6px 12px;min-width:54px}
+.award.done .pts:not(.on){opacity:.2}
+.award.done .pts.on{opacity:1;outline:3px solid #facc15}
+#crBoard{max-height:360px;overflow:auto}
+.cr-row{display:flex;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.cr-rank{width:22px;color:var(--muted);font-size:12px}
+.cr-name{flex:1}
+.cr-today{color:#16a34a;font-weight:600}
+.field{display:block;font-size:12px;color:var(--muted);margin:10px 0 3px}
+.field input[type=text],.field input[type=password]{display:block;width:100%;margin-top:3px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;color:var(--ink)}
+#crStatus{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -97,7 +122,12 @@ kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-
     <div class="card">
       <h2>Roster — tap a name</h2>
       <input type="search" id="search" placeholder="Search name…">
-      <div class="legend">
+      <div class="seg" id="tapSeg" style="margin-top:8px">
+        <button data-tap="absent">Tap = absent</button>
+        <button data-tap="award">Tap = give credit ⭐</button>
+      </div>
+      <p class="hint" id="awardHint" hidden>Tap a name to give +2 / +1 / 0. The number on a name is their total credits.</p>
+      <div class="legend" id="legend">
         <span class="chip">on wheel → tap = absent</span>
         <span class="chip absent">absent → tap = present</span>
         <span class="chip picked">picked → tap = put back</span>
@@ -111,11 +141,11 @@ kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-
         <div class="drop" id="drop">📄 Drop CSV / XLSX / TXT or <u>browse</u>
           <input type="file" id="file" accept=".csv,.txt,.xlsx,.xls" hidden>
         </div>
-        <p class="hint">Replaces the current batch. Uses the column named “Name” (or the first column).</p>
+        <p class="hint">Replaces the current batch. Uses the column named “Name” (or the first column). When the Google Sheet is connected, the new list is saved to its Roster tab too.</p>
         <textarea id="names" placeholder="One name per line"></textarea>
         <div class="row">
           <button class="btn primary" id="applyBtn">Save list</button>
-          <button class="btn" id="restoreBtn">Restore built-in list</button>
+          <button class="btn" id="restoreBtn">Reload list</button>
           <button class="btn" id="templateBtn">CSV template</button>
         </div>
       </details>
@@ -158,7 +188,26 @@ kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-
         <button class="btn" id="undoBtn" disabled>↶ Undo last pick</button>
         <button class="btn" id="resetBtn" title="Shortcut: R">↺ Reset round</button>
       </div>
-      <p class="hint"><kbd>Space</kbd> spin · <kbd>1</kbd>/<kbd>2</kbd> batch · <kbd>F</kbd> full screen · <kbd>Esc</kbd> close</p>
+      <p class="hint"><kbd>Space</kbd> spin · <kbd>1</kbd>/<kbd>2</kbd> batch · <kbd>F</kbd> full screen · <kbd>Esc</kbd> close · after a pick: <kbd>2</kbd>/<kbd>1</kbd>/<kbd>0</kbd> credit</p>
+    </div>
+    <div class="card" id="creditsCard">
+      <h2>Credits — <span id="crBatch"></span></h2>
+      <div class="row"><span class="badge grey" id="crStatus">Not connected</span></div>
+      <div class="row">
+        <button class="btn small" id="crUndoBtn" disabled>↶ Undo last credit</button>
+        <button class="btn small" id="crSyncBtn">⟳ Sync now</button>
+        <a class="btn small" id="crSheetLink" target="_blank" rel="noopener" hidden style="text-decoration:none">Open Sheet ↗</a>
+      </div>
+      <div id="crBoard"></div>
+      <details id="crSetup" style="margin-top:10px">
+        <summary>Google Sheet connection</summary>
+        <label class="field">Web app URL (ends in /exec)<input type="text" id="crUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false"></label>
+        <label class="field">Secret key<input type="password" id="crKey" autocomplete="off"></label>
+        <div class="row"><button class="btn primary small" id="crSaveBtn">Connect</button><button class="btn small" id="crDisconnectBtn">Disconnect</button></div>
+        <label class="field" style="display:flex;gap:8px;align-items:center">Max credits per student per day <input type="number" id="crCap" min="0" max="50"> <small>(0 = no limit)</small></label>
+        <label class="opt"><input type="checkbox" id="crFavour"> <span>Favour students with fewer credits<br><small class="hint">Quiet students get picked more often. The wheel still looks equal.</small></span></label>
+        <p class="hint">The URL and key are saved only in this browser, never in the code. Setup steps are in the README.</p>
+      </details>
     </div>
     <div class="card">
       <h2>History — <span id="histBatch"></span></h2>
@@ -227,7 +276,8 @@ function cleanList(raw){
 }
 function setRoster(list, msg){
   B().names = list.map(n => mk(n)); B().custom = true; lastPick[S.current] = null;
-  $('names').value = list.join('\n'); highlight = null; save(); refresh(); toast(msg);
+  $('names').value = list.join('\n'); highlight = null; save(); renderBatchSeg(); refresh(); toast(msg);
+  CR.pushRoster(S.current, list);
 }
 function fromRows(rows){
   rows = rows.filter(r => r && r.some(c => String(c ?? '').trim()));
@@ -328,7 +378,7 @@ async function go(){
   const pool = onWheel(); if (!pool.length) return toast(present().length ? 'Everyone picked — press Reset round' : 'No students present');
   let k = mode === 'single' ? 1 : Math.max(1, parseInt($('count').value) || 1);
   if (k > pool.length){ toast(`Only ${pool.length} names left — picking all of them`); k = pool.length; }
-  const winners = shuffle(pool).slice(0, k);
+  const winners = CR.pickWinners(pool, k);
   setBusy(true); highlight = null;
   const animate = k === 1 || S.settings.animate, dur = S.settings.spinSec * 1000;
   if (animate){
@@ -370,8 +420,10 @@ function refresh(){
     `<span class="badge grey">${absent} absent</span><span class="badge green">${picked} picked</span>`;
   const q = $('search').value.trim().toLowerCase();
   const shown = b.names.filter(n => !q || n.name.toLowerCase().includes(q));
-  $('chips').innerHTML = shown.map(n => `<span class="chip ${n.absent ? 'absent' : n.picked ? 'picked' : ''}" data-id="${n.id}">${esc(n.name)}</span>`).join('') || `<small class="hint">${q ? 'No match.' : 'No names yet — use Manage roster.'}</small>`;
-  draw();
+  $('chips').innerHTML = shown.map(n => { const c = CR.chipCount(n.name);
+    return `<span class="chip ${n.absent ? 'absent' : n.picked ? 'picked' : ''}" data-id="${n.id}">${esc(n.name)}${c ? `<b class="cr">${c}</b>` : ''}</span>`; }).join('') ||
+    `<small class="hint">${q ? 'No match.' : 'No names yet. Connect the Google Sheet (Credits card) or use Manage roster.'}</small>`;
+  draw(); CR.render();
 }
 function renderBatchSeg(){
   $('batchSeg').innerHTML = DATA.batches.map(b => `<button data-batch="${b.id}" class="${b.id === S.current ? 'on' : ''}">${esc(b.title)} <small style="opacity:.75">(${S.batches[b.id].names.length})</small></button>`).join('');
@@ -392,8 +444,10 @@ function renderHistory(){
 let lastCopy = '';
 function showModal(title, html, copy){ $('mTitle').textContent = title; $('mBody').innerHTML = html; lastCopy = copy; $('overlay').classList.add('show'); $('closeBtn').focus(); }
 function showWinners(list){
-  showModal(list.length > 1 ? `🎉 ${list.length} names picked` : '🎉 And the pick is…',
-    `<div class="winners">` + list.map((n,i) => `<span class="winner ${list.length === 1 ? 'solo' : ''}">${list.length > 1 ? `<b>${i+1}</b>` : ''}${esc(n)}</span>`).join('') + `</div>`,
+  const solo = list.length === 1;
+  showModal(solo ? '🎉 And the pick is…' : `🎉 ${list.length} names picked`,
+    `<div class="winners">` + list.map((n,i) => `<span class="winner ${solo ? 'solo' : ''}">${solo ? '' : `<b>${i+1}</b>`}${esc(n)}</span>`).join('') + `</div>` +
+    (solo ? CR.awardBlock(list[0], 'wheel', true) : `<div class="award-list">${list.map(n => CR.awardBlock(n, 'wheel', false)).join('')}</div>`),
     list.join('\n'));
 }
 const closeModal = () => $('overlay').classList.remove('show');
@@ -433,13 +487,17 @@ $('spinBtn').onclick = go;
 $('batchSeg').onclick = e => { const b = e.target.closest('button'); if (b) switchBatch(b.dataset.batch); };
 $('modeSeg').onclick = e => { const m = e.target.dataset.mode; if (m && !spinning) setMode(m); };
 $('search').oninput = refresh;
-$('chips').onclick = e => { const id = +e.target.dataset.id; if (!id || spinning) return; const n = B().names.find(n => n.id === id);
+$('chips').onclick = e => { const chip = e.target.closest('.chip'), id = +chip?.dataset.id; if (!id || spinning) return; const n = B().names.find(n => n.id === id);
+  if (CR.tapMode() === 'award') return CR.openManual(n.name);
   if (n.absent) n.absent = false; else if (n.picked) n.picked = false; else n.absent = true; save(); refresh(); };
+$('mBody').onclick = CR.onAwardClick;
 $('allPresentBtn').onclick = () => { B().names.forEach(n => n.absent = false); save(); refresh(); };
 $('applyBtn').onclick = () => { const { out, dupes } = cleanList($('names').value.split(/\r?\n/)); if (!out.length) return toast('List is empty');
   setRoster(out, `Saved ${out.length} names` + (dupes ? ` · ${dupes} duplicates removed` : '')); };
-$('restoreBtn').onclick = () => { const b = DATA.batches.find(b => b.id === S.current);
-  if (!confirm(`Restore the built-in list for ${b.title} (${b.names.length} names)? Absent/picked marks will be cleared.`)) return;
+$('restoreBtn').onclick = () => { if (CR.connected()) return CR.reloadRoster();
+  const b = DATA.batches.find(b => b.id === S.current);
+  if (!b.names.length) return toast('No saved list yet. Connect the Google Sheet or upload a file.');
+  if (!confirm(`Restore the saved list for ${b.title} (${b.names.length} names)? Absent/picked marks will be cleared.`)) return;
   B().names = b.names.map(n => mk(n)); B().custom = false; lastPick[S.current] = null; $('names').value = b.names.join('\n'); save(); renderBatchSeg(); refresh(); toast('Built-in list restored'); };
 $('templateBtn').onclick = () => download('students_template.csv', 'Name\nFirst Student\nSecond Student\n');
 $('resetBtn').onclick = resetRound;
@@ -468,6 +526,7 @@ document.addEventListener('keydown', e => {
   if (e.target.matches('textarea,input') || e.metaKey || e.ctrlKey || e.altKey) return;
   const open = $('overlay').classList.contains('show');
   if (e.code === 'Escape'){ closeModal(); return; }
+  if (open && /^[0-2]$/.test(e.key)){ $('mBody').querySelector(`.award[data-solo]:not(.done) [data-pts="${e.key}"]`)?.click(); return; }
   if (e.code === 'Space' || e.code === 'Enter'){ e.preventDefault(); open ? closeModal() : go(); return; }
   if (open || spinning) return;
   if (e.key === 'f' || e.key === 'F') togglePresent();
@@ -477,11 +536,12 @@ document.addEventListener('keydown', e => {
 addEventListener('resize', resize);
 
 /* ---------- init ---------- */
+CR.loadLocal();   // credits settings + last roster from the Sheet (before load, so names exist)
 load();
 $('course').textContent = DATA.course ? '· ' + DATA.course : '';
 $('spinSec').value = S.settings.spinSec; $('spinSecLbl').textContent = S.settings.spinSec + ' s';
 $('names').value = B().names.map(n => n.name).join('\n');
-renderBatchSeg(); refresh(); renderHistory(); resize();
+renderBatchSeg(); refresh(); renderHistory(); resize(); CR.init();
 $('live').textContent = `${batchTitle(S.current)} ready — ${onWheel().length} on the wheel`;
 </script>
 </body>
