@@ -79,9 +79,10 @@ function newKeyValue_() { return Utilities.getUuid().replace(/-/g, '').slice(0, 
 function doGet(e) {
   return respond_(() => {
     const p = (e && e.parameter) || {}, action = p.action || 'state';
-    // student actions: need the round code shown on the QR, not the key
-    if (action === 'round') return publicRound_(p.c);
-    if (action === 'mystatus') return myStatus_(p.c, p.device);
+    // student actions: need the round code shown on the QR, not the key.
+    // (The parameter is "code", not "c": Apps Script reserves "c" and "sid".)
+    if (action === 'round') return publicRound_(p.code);
+    if (action === 'mystatus') return myStatus_(p.code, p.device);
     auth_(p.key);
     if (action === 'state') return state_(String(p.date || ''));
     if (action === 'queue') return queue_();
@@ -93,7 +94,7 @@ function doPost(e) {
   return respond_(() => {
     const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (body.action === 'raise') return raise_(body);
-    if (body.action === 'lower') return lower_(body.c, body.device);
+    if (body.action === 'lower') return lower_(body.code, body.device);
     auth_(body.key);
     if (body.action === 'award') return award_(body.events || [], String(body.date || ''));
     if (body.action === 'setRoster') return setRoster_(body.batch, body.names);
@@ -256,7 +257,7 @@ function publicRound_(c) {
 }
 
 function raise_(b) {
-  const r = openRoundFor_(b.c);
+  const r = openRoundFor_(b.code);
   if (!r) return { status: 'closed' };
   const device = String(b.device || '').slice(0, 64);
   if (!device) throw new Error('device is required');

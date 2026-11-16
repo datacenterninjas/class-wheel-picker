@@ -99,7 +99,7 @@ async function raise(extra){
   if (q.length < 2 && !extra) return say('msg', 'Type at least 2 letters', true);
   $('go').disabled = true; say('msg', 'Sending…');
   try {
-    const res = await api('POST', { action: 'raise', c: CODE, q, device, ...extra });
+    const res = await api('POST', { action: 'raise', code: CODE, q, device, ...extra });
     $('opts').innerHTML = '';
     if (res.status === 'queued'){ store.set('raise:last', res.name); showWait(res.name, res.position); startPolling(); }
     else if (res.status === 'choose'){
@@ -122,7 +122,7 @@ async function poll(){
   if (document.visibilityState !== 'visible'){ pollTimer = setTimeout(poll, 6000); return; }
   polls++;
   try {
-    const s = await api('GET', { action: 'mystatus', c: CODE, device }, 2);
+    const s = await api('GET', { action: 'mystatus', code: CODE, device }, 2);
     if (s.status === 'waiting'){ showWait(s.name, s.position); }
     else if (s.status === 'picked'){ showEnd('🎉', `${s.name}, you're up! Answer now.`, true); return; }
     else if (s.status === 'removed'){ showEnd('—', 'Your teacher took you off the queue.'); return; }
@@ -136,7 +136,7 @@ $('form').onsubmit = e => { e.preventDefault(); raise(); };
 $('opts').onclick = e => { const b = e.target.closest('[data-n]'); if (b) raise({ name: b.dataset.n }); };
 $('lower').onclick = async () => {
   $('lower').disabled = true;
-  try { await api('POST', { action: 'lower', c: CODE, device }); clearTimeout(pollTimer); showForm(); say('msg', 'Hand lowered.'); }
+  try { await api('POST', { action: 'lower', code: CODE, device }); clearTimeout(pollTimer); showForm(); say('msg', 'Hand lowered.'); }
   catch(e){ say('msg2', 'Could not lower: ' + e.message, true); }
   $('lower').disabled = false;
 };
@@ -146,10 +146,10 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
   if (!DEP || !CODE){ $('sub').textContent = 'This link is incomplete. Scan the QR on the screen again.'; return; }
   $('q').value = store.get('raise:last') || '';
   try {
-    const r = await api('GET', { action: 'round', c: CODE });
+    const r = await api('GET', { action: 'round', code: CODE });
     if (!r.open) return closed();
     $('sub').textContent = `${r.batch} · code ${r.code}`;
-    const s = await api('GET', { action: 'mystatus', c: CODE, device }, 2).catch(() => ({}));
+    const s = await api('GET', { action: 'mystatus', code: CODE, device }, 2).catch(() => ({}));
     if (s.status === 'waiting'){ showWait(s.name, s.position); startPolling(); }
     else { showForm(); $('q').focus(); }
   } catch(e){ $('sub').textContent = 'Could not reach the class. Check your internet and scan again.'; }
